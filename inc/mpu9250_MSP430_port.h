@@ -16,7 +16,7 @@
 
 #include "mpu9250.h"
 
-/* Biblioteca de driver de Texas Instrument. */
+/* Biblioteca de driver de Texas Instrument */
 #include "driverlib.h"
 
 #define UART USCI_A1_BASE
@@ -24,14 +24,9 @@
 
 #define SPI_get_interrupt_status(x, y) USCI_B_SPI_getInterruptStatus(x, y)
 #define SPI_TRANSMIT_INTERRUPT USCI_B_SPI_TRANSMIT_INTERRUPT
+#define SPI_RECEIVE_INTERRUPT USCI_B_SPI_RECEIVE_INTERRUPT
 #define SPI_transmit(x, y) USCI_B_SPI_transmitData(x, y)
 #define SPI_receive(x) USCI_B_SPI_receiveData(x)
-
-typedef enum interrupt_type
-{
-    IRX = USCI_B_SPI_RECEIVE_INTERRUPT,
-    ITX = USCI_B_SPI_TRANSMIT_INTERRUPT
-} interrupt_state_t;
 
 /*****************************************************************************
  * Private types/enumerations/variables
@@ -47,6 +42,7 @@ typedef enum interrupt_type
 void CS_MSP430_port(CS_state_t state);
 uint8_t SPI_receive_MSP430_port(void);
 void SPI_transmit_MSP430_port(uint8_t tx_data);
-void UART_send_str_MSP430_port(const uint8_t *str);
+void UART_send_str_MSP430_port(uint8_t *str);
+void delay_ms_MSP430_port(uint16_t ms);
 
 #endif /* MPU9250_MSP430_PORT_HEADER_H_ */

@@ -26,12 +26,26 @@
 #define SPI_CLK 1000000 /* 1 MHz */
 
 #define UART_send_str(x) UART_send_str_MSP430_port(x)
+#define delay_ms(x) delay_ms_MSP430_port(x)
+
+char pbuf[128]; // used by sprintf()
+
+int MyPuts(int8_t *str);
+
+#define printf(...)                 \
+    ;                               \
+    {                               \
+        sprintf(pbuf, __VA_ARGS__); \
+        MyPuts(pbuf);               \
+    }
 
 /*****************************************************************************
  * Functions
  ****************************************************************************/
-
-/* Función que el hardware específico para este proyecto */
+/**
+ * @brief Función que inicializa el hardware específico para este proyecto
+ *
+ */
 void hw_init(void)
 {
     /* Stop WDT */
@@ -64,11 +78,6 @@ void hw_init(void)
 
     /* Se habilita módulo SPI */
     USCI_B_SPI_enable(SPI);
-
-    /* Enable Receive interrupt */
-    // USCI_B_SPI_clearInterrupt(SPI, USCI_B_SPI_RECEIVE_INTERRUPT);
-    USCI_B_SPI_enableInterrupt(SPI, USCI_B_SPI_RECEIVE_INTERRUPT);
-    USCI_B_SPI_clearInterrupt(SPI, USCI_B_SPI_RECEIVE_INTERRUPT);
 
     /* Configuración de UART */
     /* USCI_A1 TXD */
@@ -103,7 +112,7 @@ void hw_init(void)
 }
 
 /**
- * @brief Function for application main entry.
+ * @brief Función principal de la aplicación.
  *
  */
 void main(void)
@@ -122,18 +131,65 @@ void main(void)
     MPU9250_config_s.chip_select = CS_MSP430_port;
     MPU9250_config_s.spi_receive = SPI_receive_MSP430_port;
     MPU9250_config_s.spi_transmit = SPI_transmit_MSP430_port;
-    MPU9250_config_s.spi_interrupt_state = SPI_Interrupt_state_MSP430_port;
+    MPU9250_config_s.delay_ms = delay_ms_MSP430_port;
 #endif
+
+    uint8_t status;
 
     /* Se inicializa el driver y se pasa la estructura de driver */
     UART_send_str("Inicializando MPU9250...\r\n");
-    mpu9250_init(MPU9250_config_s);
+    status = mpu9250_init(MPU9250_config_s);
+
+    if (status == 1)
+    {
+        UART_send_str("Error de inicialización de MPU9250\r\n");
+        UART_send_str("Se detiene el programa!\r\n");
+        while (1)
+            ;
+    }
 
     UART_send_str("MPU9250 incializado\r\n");
 
     while (1)
     {
-        /* CPU off y Habilitación de interrupciones */
-        __low_power_mode_4();
+        /* Se lee el sensor y se guardan los datos en estructura de control */
+        mpu9250_get_data();
+
+        /* Se imprimen los datos crudos */
+        printf("Acelerometro:   (%d, %d, %d)   \r\n",
+               mpu9250_get_accel_x(),
+               mpu9250_get_accel_y(),
+               mpu9250_get_accel_z());
+
+        printf("Giroscopo:      (%d, %d, %d)   \r\n",
+               mpu9250_get_gyro_x(),
+               mpu9250_get_gyro_y(),
+               mpu9250_get_gyro_z());
+
+        printf("Magnetometro:   (%d, %d, %d)   \r\n",
+               mpu9250_get_mag_x(),
+               mpu9250_get_mag_y(),
+               mpu9250_get_mag_z());
+
+        delay_ms(200);
     }
+}
+
+/**
+ * @brief Función para colocar salida de printf por UART.
+ *
+ * @param str
+ * @return int
+ */
+int MyPuts(int8_t *str)
+{
+    register char i = 0;
+    while (str[i])
+    {
+        while (!(UCA1IFG & UCTXIFG))
+            ;
+        UCA1TXBUF = str[i++];
+    }
+    // return number of chars sent
+    return (i);
 }

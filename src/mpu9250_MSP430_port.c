@@ -39,7 +39,6 @@
  *  @details Esta función es específica para el hardware utilizado.
  *
  *  @param   state  Determina la accion a ser tomada con el pin CS.
- *  @return  None.
  */
 void CS_MSP430_port(CS_state_t state)
 {
@@ -58,44 +57,6 @@ void CS_MSP430_port(CS_state_t state)
 }
 
 /**
- *  @brief Funcion para habilitar/deshabilitar interrupción para SPI.
- *
- *  @details Esta funcion es especifica para el hardware utilizado.
- *
- */
-void SPI_Interrupt_state_MSP430_port(int_state_t state, int_t mask)
-{
-    USCI_B_SPI_clearInterrupt(SPI, mask);
-
-    switch (state)
-    {
-    case I_ENABLE:
-        USCI_B_SPI_enableInterrupt(SPI, mask);
-        break;
-
-    case I_DISABLE:
-        USCI_B_SPI_disableInterrupt(SPI, mask);
-        break;
-
-    default:
-        break;
-    }
-}
-
-/**
- *  @brief Funcion para deshabilitar interrupción de RX para SPI.
- *
- *  @details Esta funcion es especifica para el hardware utilizado.
- *
- */
-void SPI_Disable_RX_Interrupt_MSP430_port(void)
-{
-    USCI_B_SPI_disableInterrupt(SPI, USCI_B_SPI_RECEIVE_INTERRUPT);
-
-    USCI_B_SPI_clearInterrupt(SPI, USCI_B_SPI_RECEIVE_INTERRUPT);
-}
-
-/**
  *  @brief Funcion para recibir un dato mediante SPI.
  *
  *  @details Esta funcion es especifica para el hardware utilizado.
@@ -104,6 +65,14 @@ void SPI_Disable_RX_Interrupt_MSP430_port(void)
  */
 uint8_t SPI_receive_MSP430_port(void)
 {
+    /* Se transmite dummy byte para proover el clock */
+    SPI_transmit_MSP430_port(DUMMY_BYTE);
+
+    /* Se espera dato en RXBUF */
+    while (!SPI_get_interrupt_status(SPI, SPI_RECEIVE_INTERRUPT))
+        ;
+
+    /* Se retorna dato recibido */
     return SPI_receive(SPI);
 }
 
@@ -117,7 +86,7 @@ uint8_t SPI_receive_MSP430_port(void)
  */
 void SPI_transmit_MSP430_port(uint8_t tx_data)
 {
-    /* Buffer vacio? */
+    /* Se espera a que se libere TXBUF */
     while (!SPI_get_interrupt_status(SPI, SPI_TRANSMIT_INTERRUPT))
         ;
 
@@ -130,7 +99,7 @@ void SPI_transmit_MSP430_port(uint8_t tx_data)
  *
  * @param[in] str String a enviar.
  */
-void UART_send_str_MSP430_port(const uint8_t *str)
+void UART_send_str_MSP430_port(uint8_t *str)
 {
     while (*str != '\0')
     {
@@ -139,27 +108,16 @@ void UART_send_str_MSP430_port(const uint8_t *str)
     }
 }
 
-/*****************************************************************************
- * USCI_B0 interrupt vector service routine.
- ****************************************************************************/
-#if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
-#pragma vector = USCI_B0_VECTOR
-__interrupt
-#elif defined(__GNUC__)
-__attribute__((interrupt(USCI_B0_VECTOR)))
-#endif
-
-    void
-    USCI_B0_ISR(void)
+/**
+ * @brief Función para generar un delay.
+ *
+ * @param[in] ms Duración del delay en milisegundos.
+ */
+void delay_ms_MSP430_port(uint16_t ms)
 {
-
-    switch (__even_in_range(UCB0IV, 4))
+    while (ms)
     {
-    /* Vector 2: RXIFG */
-    case 2:
-        mpu9250_received_data();
-        break;
-    default:
-        break;
+        __delay_cycles(1052);
+        ms--;
     }
 }
